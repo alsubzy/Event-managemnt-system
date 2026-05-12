@@ -1,0 +1,232 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ORGANIZER
+  STAFF
+  USER
+}
+
+enum EventType {
+  PHYSICAL
+  VIRTUAL
+  HYBRID
+}
+
+enum EventStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum TicketType {
+  REGULAR
+  VIP
+  EARLY_BIRD
+}
+
+enum TicketStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  REFUNDED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum NotificationCategory {
+  GENERAL
+  BOOKING
+  EVENT
+  PAYMENT
+}
+
+enum StaffRole {
+  STAFF
+  MANAGER
+}
+
+model User {
+  id            String          @id @default(cuid())
+  clerkId       String          @unique
+  email         String          @unique
+  name          String?
+  role          UserRole        @default(USER)
+  avatarUrl     String?
+  createdAt     DateTime        @default(now())
+  bookings      Booking[]
+  tickets       Ticket[]
+  notifications Notification[]
+  reviews       Review[]
+  staff         Staff[]
+}
+
+model Organizer {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  description String?
+  owner       User      @relation(fields: [ownerId], references: [id])
+  ownerId     String
+  events      Event[]
+  staff       Staff[]
+  createdAt   DateTime  @default(now())
+}
+
+model Venue {
+  id       String  @id @default(cuid())
+  name     String
+  address  String
+  city     String
+  country  String
+  capacity Int
+  events   Event[]
+}
+
+model Category {
+  id    String  @id @default(cuid())
+  name  String  @unique
+  slug  String  @unique
+  events Event[]
+}
+
+model Event {
+  id          String      @id @default(cuid())
+  title       String
+  slug        String      @unique
+  description String
+  category    Category    @relation(fields: [categoryId], references: [id])
+  categoryId  String
+  organizer   Organizer   @relation(fields: [organizerId], references: [id])
+  organizerId String
+  venue       Venue?      @relation(fields: [venueId], references: [id])
+  venueId     String?
+  type        EventType
+  status      EventStatus @default(DRAFT)
+  visibility  Visibility  @default(PUBLIC)
+  featured    Boolean     @default(false)
+  bannerUrl   String?
+  gallery     String[]    @default([])
+  eventDate   DateTime
+  ticketPrice Float
+  capacity    Int
+  city        String
+  country     String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  tickets     Ticket[]
+  bookings    Booking[]
+  reviews     Review[]
+}
+
+model Ticket {
+  id        String       @id @default(cuid())
+  code      String       @unique
+  event     Event        @relation(fields: [eventId], references: [id])
+  eventId   String
+  user      User         @relation(fields: [userId], references: [id])
+  userId    String
+  type      TicketType
+  price     Float
+  seat      String?
+  status    TicketStatus @default(PENDING)
+  bookedAt  DateTime     @default(now())
+  booking   Booking?     @relation(fields: [bookingId], references: [id])
+  bookingId String?
+}
+
+model Booking {
+  id        String         @id @default(cuid())
+  ref       String         @unique
+  user      User           @relation(fields: [userId], references: [id])
+  userId    String
+  event     Event          @relation(fields: [eventId], references: [id])
+  eventId   String
+  quantity  Int
+  total     Float
+  status    BookingStatus  @default(PENDING)
+  paid      Boolean        @default(false)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  payment   Payment?
+  tickets   Ticket[]
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  stripePaymentId String        @unique
+  amount          Float
+  currency        String        @default("usd")
+  status          PaymentStatus @default(PENDING)
+  method          String
+  booking         Booking       @relation(fields: [bookingId], references: [id])
+  bookingId       String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Notification {
+  id           String               @id @default(cuid())
+  title        String
+  content      String
+  recipient    User                 @relation(fields: [recipientId], references: [id])
+  recipientId  String
+  read         Boolean              @default(false)
+  category     NotificationCategory @default(GENERAL)
+  createdAt    DateTime             @default(now())
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rating    Int
+  comment   String?
+  user      User     @relation(fields: [userId], references: [id])
+  userId    String
+  event     Event    @relation(fields: [eventId], references: [id])
+  eventId   String
+  createdAt DateTime @default(now())
+}
+
+model Coupon {
+  id         String   @id @default(cuid())
+  code       String   @unique
+  discount   Int
+  expiresAt  DateTime?
+  active     Boolean  @default(true)
+  usageLimit Int      @default(0)
+  createdAt  DateTime @default(now())
+}
+
+model Staff {
+  id          String    @id @default(cuid())
+  user        User      @relation(fields: [userId], references: [id])
+  userId      String
+  organizer   Organizer @relation(fields: [organizerId], references: [id])
+  organizerId String
+  role        StaffRole @default(STAFF)
+  createdAt   DateTime  @default(now())
+}
